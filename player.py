@@ -20,13 +20,39 @@ class Player(pygame.sprite.Sprite):
         # 是否在地面上 (用於判斷能否跳躍)
         self.on_ground = False
 
+        # 無敵狀態
+        self.invincible = False
+        self.invincible_start_time = 0
+        self.invincible_duration = 2000 # 2秒
+
+        # 載入音效
+        try:
+            self.jump_sound = pygame.mixer.Sound('jump.wav')
+            self.jump_sound.set_volume(0.5)
+        except:
+            self.jump_sound = None
+
     def jump(self):
         # 只有在地面上時才能跳躍
         if self.on_ground:
             self.vel_y = PLAYER_JUMP
             self.on_ground = False
+            if self.jump_sound:
+                self.jump_sound.play()
 
     def update(self):
+        # 檢查無敵狀態
+        if self.invincible:
+            if pygame.time.get_ticks() - self.invincible_start_time > self.invincible_duration:
+                self.invincible = False
+                self.image.set_alpha(255) # 恢復不透明
+            else:
+                # 閃爍效果
+                if (pygame.time.get_ticks() // 100) % 2 == 0:
+                    self.image.set_alpha(100)
+                else:
+                    self.image.set_alpha(255)
+
         self.acc_x = 0
         
         # 取得按鍵輸入

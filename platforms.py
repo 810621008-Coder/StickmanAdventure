@@ -18,8 +18,14 @@ class Platform(pygame.sprite.Sprite):
         self.start_y = y
         self.traveled = 0
         self.direction = 1
+        self.current_dx = 0
+        self.current_dy = 0
 
     def update(self):
+        # 重置當前幀的移動量
+        self.current_dx = 0
+        self.current_dy = 0
+
         # 如果有設定移動速度
         if self.move_x != 0 or self.move_y != 0:
             dx = self.move_x * self.direction
@@ -27,6 +33,9 @@ class Platform(pygame.sprite.Sprite):
             
             self.rect.x += dx
             self.rect.y += dy
+            
+            self.current_dx = dx
+            self.current_dy = dy
             
             self.traveled += abs(dx) + abs(dy)
             

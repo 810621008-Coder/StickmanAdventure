@@ -20,6 +20,7 @@ ORANGE = (255, 165, 0) # 小 Boss 顏色
 DARK_RED = (139, 0, 0) # 大 Boss 顏色
 PINK = (255, 192, 203) # 公主顏色
 GRAY = (100, 100, 100) # 地板顏色
+DARK_GREEN = (0, 100, 0) # 食人花顏色
 
 # 玩家設定
 PLAYER_WIDTH = 40
@@ -55,11 +56,17 @@ LEVEL_1 = {
         (750, SCREEN_HEIGHT - 350),
         (1000, SCREEN_HEIGHT - 500),
         (1300, SCREEN_HEIGHT - 250),
+        (1650, SCREEN_HEIGHT - 200), # 第五個平台上的金幣
     ],
     'enemies': [
         (500, SCREEN_HEIGHT - 40, 100),
         (700, SCREEN_HEIGHT - 40, 150),
         (1300, SCREEN_HEIGHT - 240, 100),
+        (1600, SCREEN_HEIGHT - 190, 100), # 第五個平台上的敵人
+    ],
+    'pop_up_enemies': [
+        (1100, SCREEN_HEIGHT - 40, 0),   # 第一個食人花 (無延遲)
+        (1400, SCREEN_HEIGHT - 40, 100), # 第二個食人花 (延遲 100 幀)
     ],
     # 'portal': (2400, SCREEN_HEIGHT - 90), # 移除原本的靜態傳送門
     'boss': {
@@ -79,7 +86,7 @@ LEVEL_2 = {
         (400, SCREEN_HEIGHT - 200, 200, 20),
         (700, SCREEN_HEIGHT - 350, 200, 20),
         (1000, SCREEN_HEIGHT - 500, 200, 20),
-        (1300, SCREEN_HEIGHT - 300, 200, 20),
+        (1300, SCREEN_HEIGHT - 300, 200, 20, 2, 0, 150), # 第四個平台左右移動 (速度2, 距離150)
         (1600, SCREEN_HEIGHT - 150, 200, 20),
         (2000, SCREEN_HEIGHT - 40, 800, 40), # Boss 戰場地
     ],
