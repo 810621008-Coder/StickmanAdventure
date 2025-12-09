@@ -65,7 +65,7 @@ class FallingEnemy(pygame.sprite.Sprite):
             self.kill()
 
 class PopUpEnemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, delay=0):
+    def __init__(self, x, y, delay=0, hidden_time=100, wait_time=60):
         super().__init__()
         self.x = x
         self.base_y = y
@@ -79,8 +79,8 @@ class PopUpEnemy(pygame.sprite.Sprite):
         
         self.state = 'HIDDEN' # HIDDEN, RISING, WAITING, LOWERING
         self.timer = -delay # 負值代表延遲啟動
-        self.hidden_time = 100
-        self.wait_time = 60
+        self.hidden_time = hidden_time
+        self.wait_time = wait_time
         self.speed = 2
 
     def update(self):

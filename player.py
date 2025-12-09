@@ -32,6 +32,16 @@ class Player(pygame.sprite.Sprite):
         except:
             self.jump_sound = None
 
+        # 裝備狀態
+        self.has_sword = False
+        self.has_shield = False
+        self.is_attacking = False
+        self.is_blocking = False
+        self.attack_time = 0
+        self.block_time = 0
+        self.attack_cooldown = 500
+        self.last_attack_time = 0
+
     def jump(self):
         # 只有在地面上時才能跳躍
         if self.on_ground:
@@ -40,7 +50,34 @@ class Player(pygame.sprite.Sprite):
             if self.jump_sound:
                 self.jump_sound.play()
 
+    def attack(self):
+        now = pygame.time.get_ticks()
+        if self.has_sword and not self.is_attacking and now - self.last_attack_time > self.attack_cooldown:
+            self.is_attacking = True
+            self.attack_time = now
+            self.last_attack_time = now
+            # 攻擊時稍微改變顏色或外觀
+            self.image.fill(YELLOW) 
+
+    def defend(self):
+        if self.has_shield and not self.is_blocking:
+            self.is_blocking = True
+            self.block_time = pygame.time.get_ticks()
+            self.image.fill(BLUE) # 防禦時變藍色
+
     def update(self):
+        # 檢查攻擊狀態
+        if self.is_attacking:
+            if pygame.time.get_ticks() - self.attack_time > 200: # 攻擊持續 0.2 秒
+                self.is_attacking = False
+                self.image.fill(PLAYER_COLOR) # 恢復顏色
+
+        # 檢查防禦狀態
+        if self.is_blocking:
+            if pygame.time.get_ticks() - self.block_time > SHIELD_DURATION:
+                self.is_blocking = False
+                self.image.fill(PLAYER_COLOR)
+
         # 檢查無敵狀態
         if self.invincible:
             if pygame.time.get_ticks() - self.invincible_start_time > self.invincible_duration:

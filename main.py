@@ -3,7 +3,7 @@ import sys
 from settings import *
 from player import Player
 from platforms import Platform
-from items import Coin, Portal, Princess
+from items import Coin, Portal, Princess, Item, Pipe
 from enemy import Enemy, FallingEnemy, PopUpEnemy
 from boss import Boss, Bullet
 import random
@@ -34,6 +34,8 @@ class Game:
         self.bosses = pygame.sprite.Group()
         self.bullets = pygame.sprite.Group()
         self.princesses = pygame.sprite.Group()
+        self.items = pygame.sprite.Group()
+        self.pipes = pygame.sprite.Group()
         
         self.world_shift_x = 0 # 紀錄世界卷軸偏移量
         
@@ -66,22 +68,20 @@ class Game:
             self.all_sprites.add(enemy)
             self.enemies.add(enemy)
 
+        # 建立玩家 (先建立，以便傳給 Boss)
+        self.player = Player()
+        # 設定玩家初始位置 (避免出生在敵人堆裡或半空中)
+        self.player.rect.centerx = 100
+        self.player.rect.bottom = SCREEN_HEIGHT - 40 - 10
+        self.all_sprites.add(self.player)
+
         # 建立 Boss
         if 'boss' in level_data:
             boss_data = level_data['boss']
-            boss = Boss(boss_data['x'], boss_data['y'], boss_data['type'])
+            # 傳入 platforms 和 player 以便進行物理碰撞和追蹤
+            boss = Boss(boss_data['x'], boss_data['y'], boss_data['type'], self.platforms, self.player)
             self.all_sprites.add(boss)
             self.bosses.add(boss)
-
-        # 建立傳送門 (如果有靜態設定的話，但現在我們改用動態生成)
-        if 'portal' in level_data:
-            portal = Portal(*level_data['portal'])
-            self.all_sprites.add(portal)
-            self.portals.add(portal)
-        
-        # 建立玩家
-        self.player = Player()
-        self.all_sprites.add(self.player)
         
         self.run()
 
@@ -114,17 +114,108 @@ class Game:
             
             # 偵測按鍵按下
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_UP:
                     self.player.jump()
+                if event.key == pygame.K_a:
+                    self.player.attack()
+                if event.key == pygame.K_s:
+                    self.player.defend()
                 # 跳關密技
                 if event.key == pygame.K_F1:
                     self.level_complete = True
                     self.playing = False
+                # 進入水管
+                if event.key == pygame.K_DOWN:
+                    self.check_pipe_entry()
+
+    def check_pipe_entry(self):
+        # 檢查是否站在水管上
+        hits = pygame.sprite.spritecollide(self.player, self.pipes, False)
+        if hits:
+            level_data = LEVELS[self.current_level_index]
+            if 'secret_spawn' in level_data:
+                # 傳送到秘密區域
+                spawn_x, spawn_y = level_data['secret_spawn']
+                # 這裡需要注意：因為世界卷軸的關係，直接設定座標可能會錯位
+                # 簡單作法：重置世界偏移，然後將玩家放到絕對座標
+                # 但這樣會讓原本的地圖亂掉。
+                # 更好的作法：計算相對位移。
+                # 由於秘密區域是同一張地圖的一部分 (只是在很下面)，我們可以直接移動玩家
+                self.player.rect.x = spawn_x
+                self.player.rect.y = spawn_y
+                # 為了讓鏡頭跟上，我們可能需要強制移動鏡頭
+                # 但目前的 shift_world 是移動物體，不是移動鏡頭。
+                # 所以如果我們把玩家瞬移到很遠的地方，鏡頭不會自動跟過去，
+                # 而是玩家會跑出螢幕外。
+                # 我們需要反向操作 shift_world 來「移動鏡頭」到玩家新位置。
+                
+                # 算出目標位置相對於螢幕中心的偏移
+                target_screen_x = SCREEN_WIDTH // 2
+                shift_needed = target_screen_x - self.player.rect.centerx
+                self.shift_world(shift_needed)
+                
+                # 垂直方向我們沒有做卷軸，所以如果秘密區域在 y=1000，玩家會掉出螢幕。
+                # 我們需要實作垂直卷軸，或者簡單地把秘密區域的所有物件往上移，
+                # 把原本的物件暫時移走。
+                # 這裡採用簡單作法：垂直瞬移所有物件
+                shift_y = SCREEN_HEIGHT - 150 - self.player.rect.y # 讓玩家出現在螢幕下方
+                for sprite in self.all_sprites:
+                    sprite.rect.y += shift_y
+                
+                # 記錄這個垂直偏移，以便之後復原 (如果需要)
+                # 但因為我們是單向進入，出來時會到另一個出口，所以直接設定出口位置即可。
 
     def update(self):
         # 更新所有物件狀態
         self.all_sprites.update()
         
+        # 檢查是否掉出秘密區域 (回到主地圖)
+        level_data = LEVELS[self.current_level_index]
+        if 'pipe_exit' in level_data:
+            # 如果玩家在秘密區域 (y 座標很大) 且走到了出口位置
+            # 這裡簡化判定：如果玩家走到了出口 x 座標附近
+            exit_x, exit_y = level_data['pipe_exit']
+            # 注意：這裡的 exit_x 是絕對座標，需要考慮 world_shift
+            # 但因為我們在秘密區域裡移動了 world_shift，所以座標系統是一致的
+            
+            # 簡單判定：如果玩家取得了劍和盾，就自動傳送回地面
+            if self.player.has_sword and self.player.has_shield:
+                 if 'exit_spawn' in level_data:
+                    spawn_x, spawn_y = level_data['exit_spawn']
+                    self.player.rect.x = spawn_x
+                    self.player.rect.y = spawn_y
+                    
+                    # 調整水平鏡頭
+                    target_screen_x = SCREEN_WIDTH // 3
+                    shift_needed = target_screen_x - self.player.rect.centerx
+                    self.shift_world(shift_needed)
+                    
+                    # 調整垂直位置 (把所有物件移回原位)
+                    # 這比較麻煩，因為我們剛才亂動了 y 軸。
+                    # 比較穩健的作法是重新載入關卡，但保留道具狀態。
+                    # 這裡我們用一個簡單的 hack: 
+                    # 假設秘密區域在 y=900~1000，地面在 y=500~600
+                    # 我們剛才把 y=900 的東西移到了 y=500
+                    # 現在要把 y=500 (原本的地面) 移回來
+                    # 其實只要確保玩家回到地面時，地面的 y 座標是正確的即可。
+                    # 我們重新對齊所有平台：
+                    # 找到地面平台 (y 最接近 SCREEN_HEIGHT - 40 的)
+                    # 算出它現在的 y 和目標 y 的差距，然後移動所有物件
+                    
+                    ground_plat = None
+                    for p in self.platforms:
+                        # 尋找原本的主地面 (寬度很大的那個)
+                        if p.rect.width > 500 and p.rect.height == 40: 
+                             ground_plat = p
+                             break
+                    
+                    if ground_plat:
+                        current_y = ground_plat.rect.y
+                        target_y = SCREEN_HEIGHT - 40
+                        diff_y = target_y - current_y
+                        for sprite in self.all_sprites:
+                            sprite.rect.y += diff_y
+
         # 1. 平台碰撞偵測
         # 只有在「往下掉」的時候才偵測碰撞，這樣才能從平台下方跳上去
         if self.player.vel_y > 0:
@@ -249,10 +340,53 @@ class Game:
                     self.level_complete = False
                 break # 只要撞到一個有效攻擊就處理
 
+        # 道具碰撞偵測
+        hits = pygame.sprite.spritecollide(self.player, self.items, True)
+        for item in hits:
+            if item.type == 'sword':
+                self.player.has_sword = True
+                print("Got Sword!")
+            elif item.type == 'shield':
+                self.player.has_shield = True
+                print("Got Shield!")
+
+        # 劍攻擊判定 (攻擊敵人)
+        if self.player.is_attacking:
+            # 建立一個臨時的攻擊判定框
+            attack_rect = self.player.rect.copy()
+            if self.player.vel_x >= 0: # 向右
+                attack_rect.x += 40
+            else: # 向左
+                attack_rect.x -= 40
+            
+            # 攻擊敵人
+            for enemy in self.enemies:
+                if attack_rect.colliderect(enemy.rect):
+                    enemy.kill()
+                    self.score += 50
+            
+            # 攻擊 Boss
+            for boss in self.bosses:
+                if attack_rect.colliderect(boss.rect):
+                    boss.hp -= SWORD_DAMAGE
+                    # 擊退 Boss
+                    boss.rect.x += 50 if self.player.rect.centerx < boss.rect.centerx else -50
+                    print(f"Boss HP: {boss.hp}")
+                    if boss.hp <= 0:
+                        boss.kill()
+                        self.score += 1000
+                        self.spawn_end_game_items()
+
         # 子彈擊中玩家
         hits = pygame.sprite.spritecollide(self.player, self.bullets, True)
         if hits:
-            if not self.player.invincible:
+            # 如果正在防禦，且子彈從前方來
+            blocked = False
+            if self.player.is_blocking:
+                # 簡單判定：只要防禦就擋住所有子彈
+                blocked = True
+            
+            if not blocked and not self.player.invincible:
                 self.lives -= 1
                 if self.lives > 0:
                     self.respawn_player(pos=self.player.rect.center)
@@ -272,30 +406,23 @@ class Game:
                     if boss.hp <= 0:
                         boss.kill()
                         self.score += 500
-                        # Boss 死亡後的事件
-                        level_data = LEVELS[self.current_level_index]
-                        if 'portal_spawn' in level_data:
-                            # 修正：生成位置需要加上目前的世界偏移量
-                            spawn_x, spawn_y = level_data['portal_spawn']
-                            portal = Portal(spawn_x + self.world_shift_x, spawn_y)
-                            self.all_sprites.add(portal)
-                            self.portals.add(portal)
-                        if 'princess_spawn' in level_data:
-                            spawn_x, spawn_y = level_data['princess_spawn']
-                            princess = Princess(spawn_x + self.world_shift_x, spawn_y)
-                            self.all_sprites.add(princess)
-                            self.princesses.add(princess)
+                        self.spawn_end_game_items()
                 else:
-                    if self.player.invincible:
-                        continue
-
-                    # 被 Boss 撞傷
-                    self.lives -= 1
-                    if self.lives > 0:
-                        self.respawn_player(pos=self.player.rect.center)
-                    else:
-                        self.playing = False
-                        self.level_complete = False
+                    # 檢查是否防禦衝撞
+                    blocked = False
+                    if self.player.is_blocking:
+                        blocked = True
+                        # 彈開玩家
+                        self.player.vel_x = -10 if self.player.rect.centerx < boss.rect.centerx else 10
+                    
+                    if not blocked and not self.player.invincible:
+                        # 被 Boss 撞傷
+                        self.lives -= 1
+                        if self.lives > 0:
+                            self.respawn_player(pos=self.player.rect.center)
+                        else:
+                            self.playing = False
+                            self.level_complete = False
 
         # 6. 掉落死亡偵測
         if self.player.rect.top > SCREEN_HEIGHT:
@@ -317,6 +444,20 @@ class Game:
         if hits:
             self.playing = False
             self.level_complete = True # 這裡會觸發 victory screen，因為已經是最後一關了
+
+    def spawn_end_game_items(self):
+        # Boss 死亡後的事件
+        level_data = LEVELS[self.current_level_index]
+        if 'portal_spawn' in level_data:
+            spawn_x, spawn_y = level_data['portal_spawn']
+            portal = Portal(spawn_x + self.world_shift_x, spawn_y)
+            self.all_sprites.add(portal)
+            self.portals.add(portal)
+        if 'princess_spawn' in level_data:
+            spawn_x, spawn_y = level_data['princess_spawn']
+            princess = Princess(spawn_x + self.world_shift_x, spawn_y)
+            self.all_sprites.add(princess)
+            self.princesses.add(princess)
 
     def respawn_player(self, pos=None):
         # 啟動無敵狀態
@@ -387,6 +528,10 @@ class Game:
             bullet.rect.x += shift_x
         for princess in self.princesses:
             princess.rect.x += shift_x
+        for item in self.items:
+            item.rect.x += shift_x
+        for pipe in self.pipes:
+            pipe.rect.x += shift_x
 
     def draw(self):
         # 繪製畫面
@@ -398,6 +543,12 @@ class Game:
         # 繪製 UI
         self.draw_text(f"Score: {self.score}", 22, WHITE, 10, 10)
         self.draw_text(f"Lives: {self.lives}", 22, WHITE, 10, 40)
+        
+        # 顯示裝備狀態
+        if self.player.has_sword:
+            self.draw_text("SWORD", 18, YELLOW, 10, 70)
+        if self.player.has_shield:
+            self.draw_text("SHIELD", 18, BLUE, 10, 90)
         
         # 更新顯示
         pygame.display.flip()

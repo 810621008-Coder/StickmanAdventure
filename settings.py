@@ -5,7 +5,7 @@
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 FPS = 60
-TITLE = "火柴人冒險 (Stickman Adventure)"
+TITLE = "Stickman Adventure"
 
 # 顏色定義 (R, G, B)
 WHITE = (255, 255, 255)
@@ -31,10 +31,14 @@ PLAYER_FRICTION = -0.12 # 摩擦力 (控制停下來的速度)
 PLAYER_GRAVITY = 0.8  # 重力
 PLAYER_JUMP = -16     # 跳躍力 (負值代表向上)
 PLAYER_LIVES = 5      # 玩家初始生命
+SWORD_DAMAGE = 1      # 劍攻擊力
+SHIELD_DURATION = 500 # 盾牌防禦持續時間 (毫秒)
 
 # Boss 設定
 BOSS_WIDTH = 50
 BOSS_HEIGHT = 80
+BOSS_JUMP_POWER = -15 # Boss 跳躍力
+BOSS_DASH_SPEED = 10  # Boss 衝刺速度
 BULLET_SPEED = 5
 BULLET_COLOR = RED
 
@@ -110,9 +114,67 @@ LEVEL_2 = {
         'y': SCREEN_HEIGHT - 40,
         'hp': 5
     },
-    'princess_spawn': (2700, SCREEN_HEIGHT - 90), # Boss 死後公主出現的位置
+    'portal_spawn': (2700, SCREEN_HEIGHT - 90), # Boss 死後傳送門出現的位置
     'length': 2800
 }
 
+# 關卡 3 資料 (最終決戰)
+LEVEL_3 = {
+    'platforms': [
+        (0, SCREEN_HEIGHT - 40, 1000, 40), # 加長起始地板
+        (400, SCREEN_HEIGHT - 200, 200, 20),
+        (700, SCREEN_HEIGHT - 320, 200, 20, 2, 0, 150), # 第二個漂浮平台左右移動
+        (1075, SCREEN_HEIGHT - 400, 150, 20, 0, 2, 220), # 第三個漂浮平台變短且上下移動 (範圍加大，讓玩家能從下方跳上來)
+        (1300, SCREEN_HEIGHT - 320, 200, 20, 2, 0, 150), # 第四個漂浮平台左右移動
+        (1600, SCREEN_HEIGHT - 200, 200, 20),
+        (1800, SCREEN_HEIGHT - 40, 1200, 40), # Boss 戰場地
+        
+        # 新增：第三平台下方的地面島
+        (1050, SCREEN_HEIGHT - 40, 200, 40),
+
+        # 秘密區域平台 (位於地下 y=1000 處)
+        (0, 1000, 800, 40),
+        (200, 900, 100, 20),
+        (500, 900, 100, 20),
+    ],
+    'coins': [
+        (450, SCREEN_HEIGHT - 250),
+        (750, SCREEN_HEIGHT - 370),
+        (1050, SCREEN_HEIGHT - 490),
+        (1350, SCREEN_HEIGHT - 370),
+        (1650, SCREEN_HEIGHT - 250),
+    ],
+    'enemies': [
+        (600, SCREEN_HEIGHT - 40, 150), # 將敵人移遠一點，避免開場被撞
+        (1000, SCREEN_HEIGHT - 480, 100),
+        (1600, SCREEN_HEIGHT - 240, 100),
+        # 秘密區域守衛
+        (200, 960, 100),
+        (500, 960, 100),
+    ],
+    'pop_up_enemies': [
+        (1150, SCREEN_HEIGHT - 40, 0, 200, 100), # 地面島上的食人花 (頻率較慢)
+    ],
+    'falling_enemies': True,
+    'boss': {
+        'type': 'final',
+        'x': 2600,
+        'y': SCREEN_HEIGHT - 40,
+        'hp': 8
+    },
+    'princess_spawn': (2900, SCREEN_HEIGHT - 80),
+    'length': 3000,
+    
+    # 特殊物件
+    'pipe': (100, SCREEN_HEIGHT - 40 - 60), # 通往秘密區域的入口 (x, y)
+    'secret_spawn': (50, 900), # 進入秘密區域後的重生點
+    'pipe_exit': (750, 940), # 離開秘密區域的出口
+    'exit_spawn': (200, SCREEN_HEIGHT - 40), # 離開後的重生點
+    'items': [
+        ('sword', 220, 850), # 劍的位置 (秘密區域)
+        ('shield', 520, 850), # 盾的位置 (秘密區域)
+    ]
+}
+
 # 所有關卡清單
-LEVELS = [LEVEL_1, LEVEL_2]
+LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3]
