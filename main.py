@@ -22,6 +22,7 @@ class Game:
         self.current_level_index = 0
         self.score = 0
         self.lives = PLAYER_LIVES
+        self.jump_to_level = None # 用於指定跳轉的關卡索引
 
     def new(self):
         # 開始新關卡
@@ -37,6 +38,7 @@ class Game:
         self.items = pygame.sprite.Group()
         self.pipes = pygame.sprite.Group()
         
+        self.end_game_items_spawned = False # 標記是否已經生成過關道具
         self.world_shift_x = 0 # 紀錄世界卷軸偏移量
         
         # 讀取當前關卡資料
@@ -101,6 +103,8 @@ class Game:
         while self.playing:
             self.clock.tick(FPS)
             self.events()
+            if not self.playing:
+                break
             self.update()
             self.draw()
 
@@ -120,10 +124,17 @@ class Game:
                     self.player.attack()
                 if event.key == pygame.K_s:
                     self.player.defend()
-                # 跳關密技
-                if event.key == pygame.K_F1:
-                    self.level_complete = True
+                
+                # 指定跳關密技
+                if event.key == pygame.K_F2:
+                    print("Jump to Level 2 activated!")
+                    self.jump_to_level = 1 # Level 2 index
                     self.playing = False
+                if event.key == pygame.K_F3:
+                    print("Jump to Level 3 activated!")
+                    self.jump_to_level = 2 # Level 3 index
+                    self.playing = False
+
                 # 進入水管
                 if event.key == pygame.K_DOWN:
                     self.check_pipe_entry()
@@ -253,6 +264,10 @@ class Game:
         for hit in hits:
             self.score += 10 # 吃到金幣加 10 分
             print(f"Score: {self.score}")
+        
+        # 檢查是否滿足過關條件 (金幣全收集 + Boss 已死)
+        if hits:
+             self.try_spawn_exit()
 
         # 4. 敵人碰撞偵測 (戰鬥系統)
         # 這裡不使用 True，因為我們要先判斷是踩死還是被撞死
@@ -375,7 +390,7 @@ class Game:
                     if boss.hp <= 0:
                         boss.kill()
                         self.score += 1000
-                        self.spawn_end_game_items()
+                        self.try_spawn_exit()
 
         # 子彈擊中玩家
         hits = pygame.sprite.spritecollide(self.player, self.bullets, True)
@@ -406,7 +421,7 @@ class Game:
                     if boss.hp <= 0:
                         boss.kill()
                         self.score += 500
-                        self.spawn_end_game_items()
+                        self.try_spawn_exit()
                 else:
                     # 檢查是否防禦衝撞
                     blocked = False
@@ -445,8 +460,16 @@ class Game:
             self.playing = False
             self.level_complete = True # 這裡會觸發 victory screen，因為已經是最後一關了
 
+    def try_spawn_exit(self):
+        # 檢查是否滿足過關條件：Boss 已死且金幣全收集
+        # 注意：boss.kill() 會將 boss 從 self.bosses 移除，所以檢查 len(self.bosses) == 0 即可
+        # 同理，金幣被吃掉後也會從 self.coins 移除
+        if len(self.bosses) == 0 and len(self.coins) == 0 and not self.end_game_items_spawned:
+            self.end_game_items_spawned = True
+            self.spawn_end_game_items()
+
     def spawn_end_game_items(self):
-        # Boss 死亡後的事件
+        # 生成過關物件 (傳送門或公主)
         level_data = LEVELS[self.current_level_index]
         if 'portal_spawn' in level_data:
             spawn_x, spawn_y = level_data['portal_spawn']
@@ -605,9 +628,22 @@ if __name__ == "__main__":
     game = Game()
     game.show_start_screen()
     while game.running:
+        pygame.event.clear() # 清除殘留的事件，避免按鍵連點導致連續跳關
         game.new()
+
+        # 檢查是否有指定跳關
+        if game.jump_to_level is not None:
+            game.current_level_index = game.jump_to_level
+            game.jump_to_level = None
+            # 確保索引不超出範圍
+            if game.current_level_index >= len(LEVELS):
+                game.current_level_index = 0
+            continue
+
         if game.level_complete:
             game.current_level_index += 1
+            # 稍微延遲一下，避免連續跳關
+            pygame.time.delay(200)
             if game.current_level_index >= len(LEVELS):
                 game.show_victory_screen()
                 game.current_level_index = 0

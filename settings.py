@@ -61,6 +61,10 @@ LEVEL_1 = {
         (1000, SCREEN_HEIGHT - 500),
         (1300, SCREEN_HEIGHT - 250),
         (1650, SCREEN_HEIGHT - 200), # 第五個平台上的金幣
+        (1100, SCREEN_HEIGHT - 80),   # 第一個下水道口
+        (1020, SCREEN_HEIGHT - 320),  # 第一個食人花左上方 (挑戰跳躍)
+        (850, SCREEN_HEIGHT - 100),   # 第一個坑口 (地板缺口處)
+        (1400, SCREEN_HEIGHT - 120),  # 第二個食人花正上方 (貼近食人花頂端)
     ],
     'enemies': [
         (500, SCREEN_HEIGHT - 40, 100),
@@ -99,6 +103,7 @@ LEVEL_2 = {
         (750, SCREEN_HEIGHT - 400),
         (1050, SCREEN_HEIGHT - 550),
         (1350, SCREEN_HEIGHT - 350),
+        (1620, SCREEN_HEIGHT - 200), # 第五個漂浮平台左側上方
     ],
     'enemies': [
         (400, SCREEN_HEIGHT - 240, 100),
@@ -143,6 +148,11 @@ LEVEL_3 = {
         (1050, SCREEN_HEIGHT - 490),
         (1350, SCREEN_HEIGHT - 370),
         (1650, SCREEN_HEIGHT - 250),
+        (720, SCREEN_HEIGHT - 380), # 第二個漂浮平台上方 (斜向排列 1)
+        (760, SCREEN_HEIGHT - 420), # 第二個漂浮平台上方 (斜向排列 2)
+        (800, SCREEN_HEIGHT - 460), # 第二個漂浮平台上方 (斜向排列 3)
+        (1150, SCREEN_HEIGHT - 120), # 食人花頭頂上方
+        (1220, SCREEN_HEIGHT - 80),  # 食人花右側
     ],
     'enemies': [
         (600, SCREEN_HEIGHT - 40, 150), # 將敵人移遠一點，避免開場被撞
