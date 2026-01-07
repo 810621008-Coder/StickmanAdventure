@@ -126,6 +126,12 @@ class Game:
                     self.player.defend()
                 
                 # 指定跳關密技
+                if event.key == pygame.K_F1:
+                    print("Restart Game activated!")
+                    self.jump_to_level = 0 # Restart Game (Level 1)
+                    self.score = 0
+                    self.lives = PLAYER_LIVES
+                    self.playing = False
                 if event.key == pygame.K_F2:
                     print("Jump to Level 2 activated!")
                     self.jump_to_level = 1 # Level 2 index
@@ -134,6 +140,11 @@ class Game:
                     print("Jump to Level 3 activated!")
                     self.jump_to_level = 2 # Level 3 index
                     self.playing = False
+                
+                # 結束遊戲
+                if event.key == pygame.K_F4:
+                    self.playing = False
+                    self.running = False
 
                 # 進入水管
                 if event.key == pygame.K_DOWN:
@@ -157,7 +168,7 @@ class Game:
                 # 為了讓鏡頭跟上，我們可能需要強制移動鏡頭
                 # 但目前的 shift_world 是移動物體，不是移動鏡頭。
                 # 所以如果我們把玩家瞬移到很遠的地方，鏡頭不會自動跟過去，
-                # 而是玩家會跑出螢幕外。
+                # 而是玩家會跑出螞幕外。
                 # 我們需要反向操作 shift_world 來「移動鏡頭」到玩家新位置。
                 
                 # 算出目標位置相對於螢幕中心的偏移
@@ -165,11 +176,11 @@ class Game:
                 shift_needed = target_screen_x - self.player.rect.centerx
                 self.shift_world(shift_needed)
                 
-                # 垂直方向我們沒有做卷軸，所以如果秘密區域在 y=1000，玩家會掉出螢幕。
+                # 垂直方向我們沒有做卷軸，所以如果秘密區域在 y=1000，玩家會掉出螞幕。
                 # 我們需要實作垂直卷軸，或者簡單地把秘密區域的所有物件往上移，
                 # 把原本的物件暫時移走。
                 # 這裡採用簡單作法：垂直瞬移所有物件
-                shift_y = SCREEN_HEIGHT - 150 - self.player.rect.y # 讓玩家出現在螢幕下方
+                shift_y = SCREEN_HEIGHT - 150 - self.player.rect.y # 讓玩家出現在螞幕下方
                 for sprite in self.all_sprites:
                     sprite.rect.y += shift_y
                 
@@ -180,6 +191,10 @@ class Game:
         # 更新所有物件狀態
         self.all_sprites.update()
         
+        # 檢查跳關 (備用方案)
+        # keys = pygame.key.get_pressed()
+        pass
+
         # 檢查是否掉出秘密區域 (回到主地圖)
         level_data = LEVELS[self.current_level_index]
         if 'pipe_exit' in level_data:
@@ -420,7 +435,14 @@ class Game:
                     print(f"Boss HP: {boss.hp}")
                     if boss.hp <= 0:
                         boss.kill()
-                        self.score += 500
+                        if boss.type == 'mini':
+                            self.score += 300
+                        elif boss.type == 'big':
+                            self.score += 500
+                        elif boss.type == 'final':
+                            self.score += 1000
+                        else:
+                            self.score += 500
                         self.try_spawn_exit()
                 else:
                     # 檢查是否防禦衝撞
@@ -496,7 +518,7 @@ class Game:
             self.player.rect.y -= 10
             return
 
-        # 尋找最近的安全平台 (包含螢幕外的)
+        # 尋找最近的安全平台 (包含螞幕外的)
         # 1. 找出所有靜止平台
         static_platforms = [p for p in self.platforms if getattr(p, 'move_x', 0) == 0 and getattr(p, 'move_y', 0) == 0]
         
@@ -577,6 +599,8 @@ class Game:
         pygame.display.flip()
 
     def show_start_screen(self):
+        if not self.running:
+            return
         self.screen.fill(BLACK)
         self.draw_text(TITLE, 48, WHITE, SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 4)
         self.draw_text("Arrows to move, Space to jump", 22, WHITE, SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2)
@@ -614,6 +638,8 @@ class Game:
         self.wait_for_key()
 
     def wait_for_key(self):
+        if not self.running:
+            return
         waiting = True
         while waiting:
             self.clock.tick(FPS)
@@ -623,6 +649,10 @@ class Game:
                     self.running = False
                 if event.type == pygame.KEYUP:
                     waiting = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_F4:
+                     waiting = False
+                     self.running = False
 
 if __name__ == "__main__":
     game = Game()
@@ -630,6 +660,9 @@ if __name__ == "__main__":
     while game.running:
         pygame.event.clear() # 清除殘留的事件，避免按鍵連點導致連續跳關
         game.new()
+        
+        if not game.running:
+            break
 
         # 檢查是否有指定跳關
         if game.jump_to_level is not None:
