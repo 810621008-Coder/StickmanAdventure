@@ -3,7 +3,7 @@ import sys
 from settings import *
 from player import Player
 from platforms import Platform
-from items import Coin, Portal, Princess, Item, Pipe
+from items import Coin, Portal, Princess, Item, Pipe, QuestionBlock, FloatingText, SuperCoin
 from enemy import Enemy, FallingEnemy, PopUpEnemy
 from boss import Boss, Bullet
 import random
@@ -23,6 +23,10 @@ class Game:
         self.score = 0
         self.lives = PLAYER_LIVES
         self.jump_to_level = None # 用於指定跳轉的關卡索引
+        
+        # UI 動畫狀態
+        self.lives_anim_timer = 0
+        self.lives_anim_color = WHITE
 
     def new(self):
         # 開始新關卡
@@ -37,6 +41,7 @@ class Game:
         self.princesses = pygame.sprite.Group()
         self.items = pygame.sprite.Group()
         self.pipes = pygame.sprite.Group()
+        self.question_blocks = pygame.sprite.Group() # 改名：問號磚群組
         
         self.end_game_items_spawned = False # 標記是否已經生成過關道具
         self.world_shift_x = 0 # 紀錄世界卷軸偏移量
@@ -57,6 +62,14 @@ class Game:
             p = Platform(*plat)
             self.all_sprites.add(p)
             self.platforms.add(p)
+            
+        # 建立問號磚 (原加命磚)
+        if 'question_blocks' in level_data:
+            for lb_pos in level_data['question_blocks']:
+                qb = QuestionBlock(*lb_pos)
+                self.all_sprites.add(qb)
+                self.question_blocks.add(qb)
+                self.platforms.add(qb) # 加入平台群組，讓玩家可以站在上面
             
         # 建立金幣
         for c in level_data['coins']:
@@ -191,6 +204,10 @@ class Game:
         # 更新所有物件狀態
         self.all_sprites.update()
         
+        # 更新 UI 動畫計時器
+        if self.lives_anim_timer > 0:
+            self.lives_anim_timer -= 1
+
         # 檢查跳關 (備用方案)
         # keys = pygame.key.get_pressed()
         pass
@@ -241,6 +258,50 @@ class Game:
                         diff_y = target_y - current_y
                         for sprite in self.all_sprites:
                             sprite.rect.y += diff_y
+
+        # 0. 問號磚頭頂碰撞偵測
+        if self.player.vel_y < 0:
+            hits = pygame.sprite.spritecollide(self.player, self.question_blocks, False)
+            for block in hits:
+                # 只有當頭頂撞到磚塊底部時觸發
+                # 簡單判定：玩家頭部在磚塊中心下方
+                if self.player.rect.top > block.rect.bottom - 20:
+                    self.player.vel_y = 0 # 撞到頭停止上升
+                    self.player.rect.top = block.rect.bottom
+                    
+                    reward = block.hit() # 觸發撞擊並取得獎勵
+                    if reward: # 如果磚塊還有效
+                        if reward == 'life_up':
+                            self.lives += 1
+                            # UI 動畫觸發 (綠色閃爍)
+                            self.lives_anim_timer = 60
+                            self.lives_anim_color = GREEN
+                            
+                            # 使用 "1UP!" 並加大字體 (綠色)
+                            ft = FloatingText(block.rect.centerx, block.rect.top - 10, "1UP!", GREEN, 40)
+                            self.all_sprites.add(ft)
+                        
+                        elif reward == 'life_down':
+                            self.lives -= 1
+                            # UI 動畫觸發 (紅色閃爍)
+                            self.lives_anim_timer = 60
+                            self.lives_anim_color = RED
+                            
+                            # 使用 "POISON!" 或 "BAD!" 並加大字體 (紅色)
+                            ft = FloatingText(block.rect.centerx, block.rect.top - 10, "BAD!", RED, 40)
+                            self.all_sprites.add(ft)
+                            # 如果生命歸零
+                            if self.lives <= 0:
+                                self.running = False 
+
+                        elif reward == 'score_100':
+                            self.score += 100
+                            # 產生特殊金幣動畫
+                            sc = SuperCoin(block.rect.centerx, block.rect.top)
+                            self.all_sprites.add(sc)
+                            # 產生文字
+                            ft = FloatingText(block.rect.centerx, block.rect.top - 40, "+100", YELLOW, 36)
+                            self.all_sprites.add(ft)
 
         # 1. 平台碰撞偵測
         # 只有在「往下掉」的時候才偵測碰撞，這樣才能從平台下方跳上去
@@ -330,7 +391,7 @@ class Game:
                     self.falling_enemies.add(enemy)
                     # 注意：這裡不加入 self.enemies，因為 update 邏輯不同
 
-        # 掉落敵人碰撞偵測 (與玩家)
+        # 掉落敵人碰撞 (與玩家)
         hits = pygame.sprite.spritecollide(self.player, self.falling_enemies, False)
         if hits:
             for enemy in hits:
@@ -587,7 +648,21 @@ class Game:
         
         # 繪製 UI
         self.draw_text(f"Score: {self.score}", 22, WHITE, 10, 10)
-        self.draw_text(f"Lives: {self.lives}", 22, WHITE, 10, 40)
+        
+        # 繪製生命值 (處理動畫效果)
+        lives_size = 22
+        lives_color = WHITE
+        
+        if self.lives_anim_timer > 0:
+            # 閃爍頻率控制 (每 15 幀切換一次放大狀態，總共閃爍兩次)
+            # 60-45 (On), 45-30 (Off), 30-15 (On), 15-0 (Off)
+            cycle = (60 - self.lives_anim_timer) % 30
+            if cycle < 15: # 放大並變色
+                lives_size = 36 # 放大
+                lives_color = self.lives_anim_color
+            # 否則保持原樣 (Off 狀態)
+        
+        self.draw_text(f"Lives: {self.lives}", lives_size, lives_color, 10, 40)
         
         # 顯示裝備狀態
         if self.player.has_sword:
